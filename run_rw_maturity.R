@@ -1,4 +1,5 @@
-library(dplyr)
+library(dplyr) # data manipulation
+library(tidyr) 
 library(TMB)
 library(reshape2) # for melt()
 library(lattice) # for matrix plotting
@@ -30,8 +31,12 @@ ages = t(matrix(1:nage, nage, nyear))
 mat <- 1 / (1 + exp(-kmat_init_vec * (ages - a50_init_vec)))
 
 lattice::levelplot(mat, xlab='Year index', ylab='Age')
-plot(1:nyear, kmat_init_vec)
-plot(1:nyear, a50_init_vec)
+simpars <- data.frame(year = 1:nyear, kmat = kmat_init_vec, a50 = a50_init_vec) %>% 
+  pivot_longer(cols = c(kmat, a50))
+(g1 <- ggplot(simpars, aes(x = year, y = value)) +
+  geom_point() +
+  facet_wrap(~name, scales = 'free_y') +
+    theme_bw())
 
 # simulate data (N=total fish, Y=mature fish)
 N <- matrix(sample(50:100, length(ages), replace=TRUE), nyear, nage)
@@ -64,12 +69,13 @@ mod$sdrep # fixed effects of the process error estimates for a50 and kmat
 
 lattice::levelplot(mod$rep$mat, xlab='Year index', ylab='Age')
 lattice::levelplot(mat, xlab='Year index', ylab='Age')
-plot(1:nyear, kmat_init_vec)
-points(1:nyear, as.list(mod$sdrep, "Estimate", report = TRUE)$kmat_vec, col = 'red', 'l')
-plot(1:nyear, a50_init_vec)
-points(1:nyear, as.list(mod$sdrep, "Estimate", report = TRUE)$a50_vec, col = 'red', 'l')
 
-logit_mat = 
+simpars <- simpars %>% 
+  arrange(name) %>% 
+  mutate(pred = c(as.list(mod$sdrep, "Estimate", report = TRUE)$a50_vec,
+                  as.list(mod$sdrep, "Estimate", report = TRUE)$kmat_vec))
+
+g1 + geom_line(data = simpars, aes(y = pred, group = name), col = 'red')
 
 annual_matdf <- mod$rep$mat %>% 
   reshape2::melt() %>% 
